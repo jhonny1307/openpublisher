@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leitor de Livros MD</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --primary-color: #007bff;
+            --border-color: #e0e0e0;
+            --ads-bg: #fff3cd;
+            --ads-border: #ffeeba;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            margin: 0 auto;
+            flex: 1;
+        }
+
+        /* Input de Busca */
+        #search-input {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            box-sizing: border-box;
+            margin-bottom: 20px;
+        }
+
+        /* Lista / Tabela de Arquivos */
+        .file-list {
+            margin-bottom: 20px;
+        }
+
+        .file-item {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 10px;
+            padding: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .file-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-name {
+            font-weight: bold;
+            cursor: help;
+            position: relative;
+        }
+
+        .actions button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            margin-left: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .actions button.btn-desc {
+            background-color: #6c757d;
+        }
+
+        /* Descrição Expandida */
+        .file-desc {
+            display: none;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed var(--border-color);
+            color: #555;
+            font-style: italic;
+        }
+
+        /* Área do Documento (.md) */
+        #doc-container {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 30px;
+            margin-top: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            min-height: 100px;
+        }
+
+        /* Modal do PDF */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-actions {
+            margin-top: 15px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        /* Seção de Anúncios */
+        #ads-container {
+            margin-top: auto;
+            padding: 15px;
+            background-color: var(--ads-bg);
+            border: 3px dashed var(--ads-border);
+            border-radius: 8px;
+            text-align: center;
+            display: none; /* Ativado via JS se ads.html for válido */
+        }
+
+        /* REGRAS DE IMPRESSÃO (window.print) */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #doc-container, #doc-container * {
+                visibility: visible;
+            }
+            #doc-container {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                border: none;
+                box-shadow: none;
+                padding: 0;
+            }
+            /* Forçar quebra de página antes de cada H1 (exceto o primeiro visível) */
+            #doc-container h1 {
+                page-break-before: always;
+            }
+            #doc-container h1:first-of-type {
+                page-break-before: auto;
+            }
+            /* Ocultar elementos indesejados que foram clonados para seleção */
+            .no-print {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <input type="text" id="search-input" placeholder="Buscar por nome, tag ou descrição..." autocomplete="off">
+
+    <div id="file-list" class="file-list"></div>
+
+    <button id="btn-open-pdf-modal" style="display:none; margin-bottom: 15px; padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">
+        📄 Opções de Exportar PDF
+    </button>
+
+    <div id="doc-container" style="display: none;"></div>
+</div>
+
+<div id="pdf-modal" class="modal">
+    <div class="modal-content">
+        <h3>Selecione o que incluir no PDF</h3>
+        <div id="chapters-selection-list"></div>
+        <div class="modal-actions">
+            <button onclick="closeModal()" style="background:#6c757d; color:white; border:none; padding:8px 12px; cursor:pointer;">Cancelar</button>
+            <button onclick="printSelected(false)" style="background:#007bff; color:white; border:none; padding:8px 12px; cursor:pointer;">Arquivo Completo</button>
+            <button onclick="printSelected(true)" style="background:#28a745; color:white; border:none; padding:8px 12px; cursor:pointer;">Partes Selecionadas</button>
+        </div>
+    </div>
+</div>
+
+<div id="ads-container"></div>
+
+<script>
+    let filesData = [];
+    let currentMarkdownRaw = "";
+
+    // Inicialização
+    document.addEventListener("DOMContentLoaded", () => {
+        loadCSV();
+        loadAds();
+        setupSearch();
+        setupScrollTracker();
+    });
+
+    // 1. Carregar e Parsear o CSV (nome;hover;desc;filename)
+    async function loadCSV() {
+        try {
+            const response = await fetch('files.csv');
+            if(!response.ok) return;
+            const text = await response.text();
+            
+            // Quebra linhas e faz o parse manual simples do CSV usando ponto e vírgula
+            const lines = text.split(/\r?\n/);
+            filesData = lines.slice(1).map(line => {
+                const columns = line.split(';');
+                if(columns.length < 4) return null;
+                return {
+                    nome: columns[0].trim(),
+                    hover: columns[1].trim(),
+                    desc: columns[2].trim(),
+                    filename: columns[3].trim()
+                };
+            }).filter(item => item !== null);
+
+            renderList(filesData);
+            
+            // Auto-carrega o último arquivo visto se houver cache
+            const lastFile = localStorage.getItem('last_filename');
+            if(lastFile) {
+                loadFile(lastFile);
+            }
+        } catch (e) {
+            console.error("Erro ao carregar o arquivo files.csv", e);
+        }
+    }
+
+    // 2. Renderizar a Tabela/Lista de Arquivos baseada nos Filtros e Regras de Ordenação
+    function renderList(data) {
+        const listContainer = document.getElementById('file-list');
+        listContainer.innerHTML = '';
+
+        data.forEach((item, index) => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'file-item';
+            itemDiv.innerHTML = `
+                <div class="file-header">
+                    <span class="file-name" title="${item.hover}">${item.nome}</span>
+                    <div class="actions">
+                        <button class="btn-desc" onclick="toggleDesc(${index})">⬇️ descrição</button>
+                        <button onclick="loadFile('${item.filename}')">Ler</button>
+                    </div>
+                </div>
+                <div class="file-desc" id="desc-${index}">${item.desc}</div>
+            `;
+            listContainer.appendChild(itemDiv);
+        });
+    }
+
+    // Alternar o colapso da descrição curta
+    function toggleDesc(index) {
+        const descDiv = document.getElementById(`desc-${index}`);
+        const btn = descDiv.previousElementSibling.querySelector('.btn-desc');
+        if(descDiv.style.display === 'block') {
+            descDiv.style.display = 'none';
+            btn.innerText = '⬇️ descrição';
+        } else {
+            descDiv.style.display = 'block';
+            btn.innerText = '⬆️ descrição';
+        }
+    }
+
+    // 3. Sistema de Filtro Avançado com pesos de preferência (Nome > Hover > Desc > Alfabética)
+    function setupSearch() {
+        const searchInput = document.getElementById('search-input');
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            if(!query) {
+                renderList(filesData);
+                return;
+            }
+
+            // Atribui pontuação/peso baseado em onde o termo foi achado primeiro
+            let filtered = filesData.map(item => {
+                let score = 0;
+                if (item.nome.toLowerCase().includes(query)) score = 4;
+                else if (item.hover.toLowerCase().includes(query)) score = 3;
+                else if (item.desc.toLowerCase().includes(query)) score = 2;
+                
+                return { item, score };
+            })
+            .filter(mapped => mapped.score > 0);
+
+            // Ordenação: Maior Score primeiro. Se empatar, Ordem Alfabética do Nome.
+            filtered.sort((a, b) => {
+                if(b.score !== a.score) return b.score - a.score;
+                return a.item.nome.localeCompare(b.item.nome);
+            });
+
+            renderList(filtered.map(f => f.item));
+        });
+    }
+
+    // 4. Carregar o arquivo Markdown selecionado
+    async function loadFile(filename) {
+        try {
+            const response = await fetch(filename);
+            if(!response.ok) return;
+            currentMarkdownRaw = await response.text();
+            
+            const docContainer = document.getElementById('doc-container');
+            docContainer.style.display = "block";
+            // Renderiza o markdown usando a biblioteca marked
+            docContainer.innerHTML = marked.parse(currentMarkdownRaw);
+            
+            document.getElementById('btn-open-pdf-modal').style.display = "block";
+            localStorage.setItem('last_filename', filename);
+
+            // Se o usuário já tinha lido esse arquivo e parou em algum H1, rola até ele
+            const lastSavedH1 = localStorage.getItem(`last_h1_${filename}`);
+            if(lastSavedH1) {
+                setTimeout(() => {
+                    const headers = Array.from(docContainer.querySelectorAll('h1, h2'));
+                    const target = headers.find(h => h.innerText === lastSavedH1);
+                    if(target) target.scrollIntoView({ behavior: 'smooth' });
+                }, 300);
+            }
+        } catch (e) {
+            console.error("Erro ao carregar o arquivo markdown", e);
+        }
+    }
+
+    // 5. Salvar a posição do último H1/H2 visualizado (Continuar de onde parei)
+    function setupScrollTracker() {
+        window.addEventListener('scroll', () => {
+            const filename = localStorage.getItem('last_filename');
+            if(!filename) return;
+
+            const headers = Array.from(document.querySelectorAll('#doc-container h1, #doc-container h2'));
+            let currentHeader = null;
+
+            for (let header of headers) {
+                const rect = header.getBoundingClientRect();
+                // Verifica se o título cruzou a parte superior ou está visível no topo da tela
+                if (rect.top >= 0 && rect.top <= window.innerHeight / 2) {
+                    currentHeader = header.innerText;
+                    break;
+                }
+            }
+
+            if(currentHeader) {
+                localStorage.setItem(`last_h1_${filename}`, currentHeader);
+            }
+        });
+    }
+
+    // 6. Configuração e abertura do Modal Customizado do PDF
+    const modal = document.getElementById('pdf-modal');
+    document.getElementById('btn-open-pdf-modal').addEventListener('click', () => {
+        const list = document.getElementById('chapters-selection-list');
+        list.innerHTML = '';
+        
+        // Coleta todos os H1 e H2 da página para o usuário marcar
+        const headers = document.querySelectorAll('#doc-container h1, #doc-container h2');
+        if(headers.length === 0) {
+            list.innerHTML = '<p>Nenhum título encontrado neste documento.</p>';
+        }
+
+        headers.forEach((h, index) => {
+            const div = document.createElement('div');
+            div.style.margin = "8px 0";
+            div.innerHTML = `
+                <label style="cursor:pointer; font-weight: ${h.tagName === 'H1' ? 'bold' : 'normal'}">
+                    <input type="checkbox" class="pdf-chk" data-index="${index}" checked>
+                    [${h.tagName}] ${h.innerText}
+                </label>
+            `;
+            list.appendChild(div);
+        });
+
+        modal.style.display = "flex";
+    });
+
+    function closeModal() {
+        modal.style.display = "none";
+    }
+
+    // 7. Processar Impressão / PDF condicional
+    function printSelected(onlySelected = false) {
+        const docContainer = document.getElementById('doc-container');
+        const headers = Array.from(docContainer.querySelectorAll('h1, h2'));
+        const checkboxes = document.querySelectorAll('.pdf-chk');
+
+        if (onlySelected) {
+            // Cria um mapa para saber quais indices ocultar temporariamente
+            checkboxes.forEach(chk => {
+                const idx = parseInt(chk.dataset.index);
+                const header = headers[idx];
+                
+                if (!chk.checked && header) {
+                    // Se não foi selecionado, marcamos com classe invisível para o print
+                    header.classList.add('no-print');
+                    // Oculta também todo o conteúdo entre este cabeçalho e o próximo
+                    let next = header.nextElementSibling;
+                    while (next && !['H1', 'H2'].includes(next.tagName)) {
+                        next.classList.add('no-print');
+                        next = next.nextElementSibling;
+                    }
+                }
+            });
+        }
+
+        closeModal();
+        window.print();
+
+        // Limpa as tags temporárias pós-impressão
+        document.querySelectorAll('.no-print').forEach(el => el.classList.remove('no-print'));
+    }
+
+    // 8. Carregar Bloco Isolado de Anúncios (ads.html)
+    async function loadAds() {
+        try {
+            const response = await fetch('ads.html');
+            if(!response.ok) return;
+            const htmlContent = await response.text();
+            
+            // Critério de conteúdo notável: não estar vazio e ter código real
+            if(htmlContent.trim().length > 10) {
+                const adsContainer = document.getElementById('ads-container');
+                adsContainer.style.display = "block";
+                adsContainer.innerHTML = `
+                    <div style="font-size:11px; color:#888; margin-bottom:5px; text-transform:uppercase; letter-spacing:1px;">Anúncio Patrocinado</div>
+                    <div>${htmlContent}</div>
+                `;
+            }
+        } catch (e) {
+            // Caso o arquivo não exista, falha silenciosamente e não exibe o container
+            console.log("ads.html não configurado ou inacessível.");
+        }
+    }
+</script>
+</body>
+</html>
