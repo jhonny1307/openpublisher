@@ -24,17 +24,17 @@ async function loadCSV(){
  csvRows=text.split(/\r?\n/).map(line=>line.trim()).filter(Boolean).map(line=>line.split(";"));
  indexRow=null;
  for(const row of csvRows){
-  if(row[0].trim().startsWith("!index")) indexRow=row;
+  if(row[0].trim()==="!index") indexRow=row;
  }
  buildMenu();
- if(indexRow) await openRow(indexRow);
+ if(indexRow&&indexRow[1]) await openFile(indexRow[1].trim());
 }
 
 function buildMenu(){
  const menu=document.getElementById("menu");
  menu.innerHTML="";
  for(const row of csvRows){
-  if(row[0].trim().startsWith("!index")) continue;
+  if(row[0].trim()==="!index") continue;
   if(!row[0].trim()) continue;
   const item=document.createElement("div");
   item.className="item";
@@ -47,13 +47,16 @@ function buildMenu(){
 async function openRow(row){
  const name=(row[0]||"").trim();
  if(!name) return;
- const file=`${name}.md`;
+ await openFile(name);
+}
+
+async function openFile(file){
  try{
   const response=await fetch(`https://raw.githubusercontent.com/${REPO}/main/${encodeURIComponent(file)}`);
   if(!response.ok) throw new Error("not found");
   document.getElementById("content").innerHTML=`<pre>${escapeHtml(await response.text())}</pre>`;
  }catch(e){
-  document.getElementById("content").textContent=`"${name}" foi encontrado, mas seu conteúdo não pôde ser carregado.`;
+  document.getElementById("content").textContent=`"${file}" foi encontrado, mas seu conteúdo não pôde ser carregado.`;
  }
 }
 
