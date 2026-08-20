@@ -1,649 +1,213 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leitor de Livros MD</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
-    <style>
-        :root {
-            --bg-color: #f8f9fa;
-            --card-bg: #ffffff;
-            --text-color: #333333;
-            --primary-color: #007bff;
-            --border-color: #e0e0e0;
-            --ads-bg: #fff3cd;
-            --ads-border: #ffeeba;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    body {
+      font-family: "Open Sans", Arial, sans-serif;
+    }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-        }
+    .menu-btn {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      transition: right 0.3s ease;
+      z-index: 10;
+    }
 
-        .container {
-            max-width: 800px;
-            width: 100%;
-            margin: 0 auto;
-            flex: 1;
-        }
+    .menu-btn.deslocado {
+      right: 276px;
+    }
 
-        /* Input de Busca */
-        #search-input {
-            width: 100%;
-            padding: 12px;
-            font-size: 16px;
-            border: 2px solid var(--border-color);
-            border-radius: 8px;
-            box-sizing: border-box;
-            margin-bottom: 20px;
-        }
+    .menu-btn span {
+      display: block;
+      width: 24px;
+      height: 2px;
+      background: #000;
+    }
 
-        /* Lista / Tabela de Arquivos */
-        .file-list {
-            margin-bottom: 20px;
-        }
+    .sidebar {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 260px;
+      height: 100%;
+      background: #fff;
+      border-left: 1px solid #ccc;
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+    }
 
-        .file-item {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            margin-bottom: 10px;
-            padding: 12px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
+    .sidebar.aberta {
+      transform: translateX(0);
+    }
 
-        .file-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+    .sidebar table {
+      width: 100%;
+      border-collapse: collapse;
+    }
 
-        .file-name {
-            font-weight: bold;
-            cursor: help;
-            position: relative;
-        }
+    .sidebar th,
+    .sidebar td {
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+    }
 
-        .actions button {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            margin-left: 5px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
+    .sidebar th {
+      border-bottom: 1px solid #ccc;
+      font-weight: 600;
+    }
 
-        .actions button.btn-desc {
-            background-color: #6c757d;
-        }
+    .sidebar tbody tr {
+      cursor: pointer;
+    }
 
-        /* Descrição Expandida */
-        .file-desc {
-            display: none;
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px dashed var(--border-color);
-            color: #555;
-            font-style: italic;
-        }
+    .sidebar tbody tr:hover {
+      background: #f5f5f5;
+    }
 
-        /* Área do Documento (.md) */
-        #doc-container {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 30px;
-            margin-top: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            min-height: 100px;
-        }
+    #conteudo {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
 
-        /* Modal do PDF */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
+    #conteudo .titulo {
+      font-size: 2.5rem;
+      margin: 0 0 12px;
+    }
 
-        .modal-content {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            max-width: 500px;
-            width: 100%;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
+    #conteudo .subtitulo {
+      font-size: 1.1rem;
+      font-style: italic;
+      color: #666;
+      margin: 0;
+    }
+    #conteudo.carregado {
+      position: static;
+      top: auto;
+      left: auto;
+      transform: none;
+      text-align: left;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 60px 24px;
+    }
 
-        .modal-actions {
-            margin-top: 15px;
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-        }
-
-        /* Seção de Anúncios */
-        #ads-container {
-            margin-top: auto;
-            padding: 15px;
-            background-color: var(--ads-bg);
-            border: 3px dashed var(--ads-border);
-            border-radius: 8px;
-            text-align: center;
-            display: none; /* Ativado via JS se ads.html for válido */
-        }
-
-        /* REGRAS DE IMPRESSÃO (window.print) */
-        @media print {
-            body * {
-                visibility: hidden;
-            }
-            #doc-container, #doc-container * {
-                visibility: visible;
-            }
-            #doc-container {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                border: none;
-                box-shadow: none;
-                padding: 0;
-            }
-            /* Forçar quebra de página antes de cada H1 (exceto o primeiro visível) */
-            #doc-container h1 {
-                page-break-before: always;
-            }
-            #doc-container h1:first-of-type {
-                page-break-before: auto;
-            }
-            /* Ocultar elementos indesejados que foram clonados para seleção */
-            .no-print {
-                display: none !important;
-            }
-        }
-    </style>
+    #conteudo.carregado :first-child {
+      margin-top: 0;
+    }
+  </style>
 </head>
 <body>
 
-<div class="container">
-    <input type="text" id="search-input" placeholder="Buscar por nome, tag ou descrição..." autocomplete="off">
+  <button class="menu-btn deslocado" id="menuBtn">
+    <span></span>
+    <span></span>
+    <span></span>
+  </button>
 
-    <div id="file-list" class="file-list"></div>
+  <div id="conteudo">
+    <p class="titulo"><strong>"Nada"</strong> foi encontrado</p>
+    <p class="subtitulo">Escolha um arquivo a direita pra Abrir</p>
+  </div>
 
-    <button id="btn-open-pdf-modal" style="display:none; margin-bottom: 15px; padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">
-        📄 Opções de Exportar PDF
-    </button>
+  <div class="sidebar aberta" id="sidebar">
+    <table id="tabela">
+      <thead><tr id="tabelaHead"></tr></thead>
+      <tbody id="tabelaBody"></tbody>
+    </table>
+  </div>
 
-    <div id="doc-container" style="display: none;"></div>
-</div>
+  <script>
+    const menuBtn = document.getElementById('menuBtn');
+    const sidebar = document.getElementById('sidebar');
+    const tabelaHead = document.getElementById('tabelaHead');
+    const tabelaBody = document.getElementById('tabelaBody');
+    const conteudo = document.getElementById('conteudo');
 
-<div id="pdf-modal" class="modal">
-    <div class="modal-content">
-        <h3>Selecione o que incluir no PDF</h3>
-        <div id="chapters-selection-list"></div>
-        <div class="modal-actions">
-            <button onclick="closeModal()" style="background:#6c757d; color:white; border:none; padding:8px 12px; cursor:pointer;">Cancelar</button>
-            <button onclick="printSelected(false)" style="background:#007bff; color:white; border:none; padding:8px 12px; cursor:pointer;">Arquivo Completo</button>
-            <button onclick="printSelected(true)" style="background:#28a745; color:white; border:none; padding:8px 12px; cursor:pointer;">Partes Selecionadas</button>
-        </div>
-    </div>
-</div>
-
-<div id="ads-container"></div>
-
-<script>
-    let filesData = [];
-    let currentMarkdownRaw = "";
-
-    // Inicialização
-    document.addEventListener("DOMContentLoaded", () => {
-        loadCSV();
-        loadAds();
-        setupSearch();
-        setupScrollTracker();
+    menuBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('aberta');
+      menuBtn.classList.toggle('deslocado');
     });
 
-    // 1. Carregar e Parsear o CSV (nome;hover;desc;filename)
-    async function loadCSV() {
-        try {
-            const response = await fetch('files.csv');
-            if(!response.ok) return;
-            const text = await response.text();
-            
-            // Quebra linhas e faz o parse manual simples do CSV usando ponto e vírgula
-            const lines = text.split(/\r?\n/);
-            filesData = lines.slice(1).map(line => {
-                const columns = line.split(';');
-                if(columns.length < 4) return null;
-                return {
-                    nome: columns[0].trim(),
-                    hover: columns[1].trim(),
-                    desc: columns[2].trim(),
-                    filename: columns[3].trim()
-                };
-            }).filter(item => item !== null);
-
-            renderList(filesData);
-            
-            // Auto-carrega o último arquivo visto se houver cache
-            const lastFile = localStorage.getItem('last_filename');
-            if(lastFile) {
-                loadFile(lastFile);
-            }
-        } catch (e) {
-            console.error("Erro ao carregar o arquivo files.csv", e);
-        }
+    // A primeira linha segue o formato "user;repo@campo1;campo2;...".
+    // "user" e "repo" (antes do @) valem pro csv inteiro (mesmo repositório
+    // pra todos os arquivos) e são guardados à parte, sem aparecer na tabela.
+    // As linhas de dados são só "campo1;campo2;..." (ex: "name;something").
+    function parseCabecalho(linha) {
+      const arroba = linha.indexOf('@');
+      const [user, repo] = linha.slice(0, arroba).split(';');
+      const campos = linha.slice(arroba + 1).split(';');
+      return { user, repo, campos };
     }
 
-    // 2. Renderizar a Tabela/Lista de Arquivos baseada nos Filtros e Regras de Ordenação
-    function renderList(data) {
-        const listContainer = document.getElementById('file-list');
-        listContainer.innerHTML = '';
+    fetch('list.csv')
+      .then(res => res.text())
+      .then(texto => {
+        const linhas = texto.trim().split('\n').filter(Boolean);
 
-        data.forEach((item, index) => {
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'file-item';
-            itemDiv.innerHTML = `
-                <div class="file-header">
-                    <span class="file-name" title="${item.hover}">${item.nome}</span>
-                    <div class="actions">
-                        <button class="btn-desc" onclick="toggleDesc(${index})">⬇️ descrição</button>
-                        <button onclick="loadFile('${item.filename}')">Ler</button>
-                    </div>
-                </div>
-                <div class="file-desc" id="desc-${index}">${item.desc}</div>
-            `;
-            listContainer.appendChild(itemDiv);
-        });
-    }
+        const { user, repo, campos: nomesColunas } = parseCabecalho(linhas[0]);
 
-    // Alternar o colapso da descrição curta
-    function toggleDesc(index) {
-        const descDiv = document.getElementById(`desc-${index}`);
-        const btn = descDiv.previousElementSibling.querySelector('.btn-desc');
-        if(descDiv.style.display === 'block') {
-            descDiv.style.display = 'none';
-            btn.innerText = '⬇️ descrição';
-        } else {
-            descDiv.style.display = 'block';
-            btn.innerText = '⬆️ descrição';
-        }
-    }
-
-    // 3. Sistema de Filtro Avançado com pesos de preferência (Nome > Hover > Desc > Alfabética)
-    function setupSearch() {
-        const searchInput = document.getElementById('search-input');
-        searchInput.addEventListener('input', (e) => {
-            const query = e.target.value.toLowerCase().trim();
-            if(!query) {
-                renderList(filesData);
-                return;
-            }
-
-            // Atribui pontuação/peso baseado em onde o termo foi achado primeiro
-            let filtered = filesData.map(item => {
-                let score = 0;
-                if (item.nome.toLowerCase().includes(query)) score = 4;
-                else if (item.hover.toLowerCase().includes(query)) score = 3;
-                else if (item.desc.toLowerCase().includes(query)) score = 2;
-                
-                return { item, score };
-            })
-            .filter(mapped => mapped.score > 0);
-
-            // Ordenação: Maior Score primeiro. Se empatar, Ordem Alfabética do Nome.
-            filtered.sort((a, b) => {
-                if(b.score !== a.score) return b.score - a.score;
-                return a.item.nome.localeCompare(b.item.nome);
-            });
-
-            renderList(filtered.map(f => f.item));
-        });
-    }
-
-    // 4. Carregar o arquivo Markdown selecionado
-    async function loadFile(filename) {
-        try {
-            const response = await fetch(filename);
-            if(!response.ok) return;
-            currentMarkdownRaw = await response.text();
-            
-            const docContainer = document.getElementById('doc-container');
-            docContainer.style.display = "block";
-            // Renderiza o markdown usando a biblioteca marked
-            docContainer.innerHTML = marked.parse(currentMarkdownRaw);
-            
-            document.getElementById('btn-open-pdf-modal').style.display = "block";
-            localStorage.setItem('last_filename', filename);
-
-            // Se o usuário já tinha lido esse arquivo e parou em algum H1, rola até ele
-            const lastSavedH1 = localStorage.getItem(`last_h1_${filename}`);
-            if(lastSavedH1) {
-                setTimeout(() => {
-                    const headers = Array.from(docContainer.querySelectorAll('h1, h2'));
-                    const target = headers.find(h => h.innerText === lastSavedH1);
-                    if(target) target.scrollIntoView({ behavior: 'smooth' });
-                }, 300);
-            }
-        } catch (e) {
-            console.error("Erro ao carregar o arquivo markdown", e);
-        }
-    }
-
-    // 5. Salvar a posição do último H1/H2 visualizado (Continuar de onde parei)
-    function setupScrollTracker() {
-        window.addEventListener('scroll', () => {
-            const filename = localStorage.getItem('last_filename');
-            if(!filename) return;
-
-            const headers = Array.from(document.querySelectorAll('#doc-container h1, #doc-container h2'));
-            let currentHeader = null;
-
-            for (let header of headers) {
-                const rect = header.getBoundingClientRect();
-                // Verifica se o título cruzou a parte superior ou está visível no topo da tela
-                if (rect.top >= 0 && rect.top <= window.innerHeight / 2) {
-                    currentHeader = header.innerText;
-                    break;
-                }
-            }
-
-            if(currentHeader) {
-                localStorage.setItem(`last_h1_${filename}`, currentHeader);
-            }
-        });
-    }
-
-    // 6. Configuração e abertura do Modal Customizado do PDF
-    const modal = document.getElementById('pdf-modal');
-<script>
-    let filesData = [];
-    let currentMarkdownRaw = "";
-    let originalDocHTML = ""; // Guarda o HTML completo original para restaurar pós-print
-
-    // Inicialização
-    document.addEventListener("DOMContentLoaded", () => {
-        loadCSV();
-        loadAds();
-        setupSearch();
-        setupScrollTracker();
-    });
-
-    // 1. Carregar e Parsear o CSV (nome;hover;desc;filename)
-    async function loadCSV() {
-        try {
-            const response = await fetch('files.csv');
-            if(!response.ok) return;
-            const text = await response.text();
-            
-            const lines = text.split(/\r?\n/);
-            filesData = lines.slice(1).map(line => {
-                const columns = line.split(';');
-                if(columns.length < 4) return null;
-                return {
-                    nome: columns[0].trim(),
-                    hover: columns[1].trim(),
-                    desc: columns[2].trim(),
-                    filename: columns[3].trim()
-                };
-            }).filter(item => item !== null);
-
-            renderList(filesData);
-            
-            const lastFile = localStorage.getItem('last_filename');
-            if(lastFile) {
-                loadFile(lastFile);
-            }
-        } catch (e) {
-            console.error("Erro ao carregar o arquivo files.csv", e);
-        }
-    }
-
-    // 2. Renderizar a Lista de Arquivos
-    function renderList(data) {
-        const listContainer = document.getElementById('file-list');
-        listContainer.innerHTML = '';
-
-        data.forEach((item, index) => {
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'file-item';
-            itemDiv.innerHTML = `
-                <div class="file-header">
-                    <span class="file-name" title="${item.hover}">${item.nome}</span>
-                    <div class="actions">
-                        <button class="btn-desc" onclick="toggleDesc(${index})">⬇️ descrição</button>
-                        <button onclick="loadFile('${item.filename}')">Ler</button>
-                    </div>
-                </div>
-                <div class="file-desc" id="desc-${index}">${item.desc}</div>
-            `;
-            listContainer.appendChild(itemDiv);
-        });
-    }
-
-    function toggleDesc(index) {
-        const descDiv = document.getElementById(`desc-${index}`);
-        const btn = descDiv.previousElementSibling.querySelector('.btn-desc');
-        if(descDiv.style.display === 'block') {
-            descDiv.style.display = 'none';
-            btn.innerText = '⬇️ descrição';
-        } else {
-            descDiv.style.display = 'block';
-            btn.innerText = '⬆️ descrição';
-        }
-    }
-
-    // 3. Sistema de Filtro Avançado
-    function setupSearch() {
-        const searchInput = document.getElementById('search-input');
-        searchInput.addEventListener('input', (e) => {
-            const query = e.target.value.toLowerCase().trim();
-            if(!query) {
-                renderList(filesData);
-                return;
-            }
-
-            let filtered = filesData.map(item => {
-                let score = 0;
-                if (item.nome.toLowerCase().includes(query)) score = 4;
-                else if (item.hover.toLowerCase().includes(query)) score = 3;
-                else if (item.desc.toLowerCase().includes(query)) score = 2;
-                
-                return { item, score };
-            })
-            .filter(mapped => mapped.score > 0);
-
-            filtered.sort((a, b) => {
-                if(b.score !== a.score) return b.score - a.score;
-                return a.item.nome.localeCompare(b.item.nome);
-            });
-
-            renderList(filtered.map(f => f.item));
-        });
-    }
-
-    // 4. Carregar o arquivo Markdown selecionado
-    async function loadFile(filename) {
-        try {
-            const response = await fetch(filename);
-            if(!response.ok) {
-                alert(`Não foi possível encontrar o arquivo: ${filename}`);
-                return;
-            }
-            currentMarkdownRaw = await response.text();
-            
-            const docContainer = document.getElementById('doc-container');
-            docContainer.style.display = "block";
-            
-            // Compatibilidade universal com a biblioteca Marked
-            if (typeof marked.parse === 'function') {
-                docContainer.innerHTML = marked.parse(currentMarkdownRaw);
-            } else {
-                docContainer.innerHTML = marked(currentMarkdownRaw);
-            }
-            
-            // Salva o HTML original para podermos restaurar depois se o usuário filtrar o PDF
-            originalDocHTML = docContainer.innerHTML;
-            
-            document.getElementById('btn-open-pdf-modal').style.display = "block";
-            localStorage.setItem('last_filename', filename);
-
-            const lastSavedH1 = localStorage.getItem(`last_h1_${filename}`);
-            if(lastSavedH1) {
-                setTimeout(() => {
-                    const headers = Array.from(docContainer.querySelectorAll('h1, h2'));
-                    const target = headers.find(h => h.innerText === lastSavedH1);
-                    if(target) target.scrollIntoView({ behavior: 'smooth' });
-                }, 300);
-            }
-        } catch (e) {
-            console.error("Erro ao carregar o arquivo markdown", e);
-        }
-    }
-
-    // 5. Salvar a posição do último H1/H2 visualizado
-    function setupScrollTracker() {
-        window.addEventListener('scroll', () => {
-            const filename = localStorage.getItem('last_filename');
-            if(!filename) return;
-
-            const headers = Array.from(document.querySelectorAll('#doc-container h1, #doc-container h2'));
-            let currentHeader = null;
-
-            for (let header of headers) {
-                const rect = header.getBoundingClientRect();
-                if (rect.top >= 0 && rect.top <= window.innerHeight / 2) {
-                    currentHeader = header.innerText;
-                    break;
-                }
-            }
-
-            if(currentHeader) {
-                localStorage.setItem(`last_h1_${filename}`, currentHeader);
-            }
-        });
-    }
-
-    // 6. Modal do PDF
-    const modal = document.getElementById('pdf-modal');
-    document.getElementById('btn-open-pdf-modal').addEventListener('click', () => {
-        const list = document.getElementById('chapters-selection-list');
-        list.innerHTML = '';
-        
-        // Sempre busca os cabeçalhos baseados no HTML original (completo)
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = originalDocHTML;
-        const headers = tempDiv.querySelectorAll('h1, h2');
-        
-        if(headers.length === 0) {
-            list.innerHTML = '<p>Nenhum título H1 ou H2 encontrado neste documento.</p>';
-        }
-
-        headers.forEach((h, index) => {
-            const div = document.createElement('div');
-            div.style.margin = "8px 0";
-            div.innerHTML = `
-                <label style="cursor:pointer; font-weight: ${h.tagName === 'H1' ? 'bold' : 'normal'}">
-                    <input type="checkbox" class="pdf-chk" data-index="${index}" checked>
-                    [${h.tagName}] ${h.innerText}
-                </label>
-            `;
-            list.appendChild(div);
+        nomesColunas.forEach(nome => {
+          const th = document.createElement('th');
+          th.textContent = nome;
+          tabelaHead.appendChild(th);
         });
 
-        modal.style.display = "flex";
-    });
+        linhas.slice(2).forEach(linha => {
+          const campos = linha.split(';');
+          const tr = document.createElement('tr');
 
-    function closeModal() {
-        modal.style.display = "none";
-    }
+          campos.forEach(valor => {
+            const td = document.createElement('td');
+            td.textContent = valor;
+            tr.appendChild(td);
+          });
 
-    // 7. Processar Impressão / PDF com reconstrução limpa de nós
-    function printSelected(onlySelected = false) {
-        const docContainer = document.getElementById('doc-container');
-        
-        if (!onlySelected) {
-            // Arquivo Completo: Garante que o container está com o HTML original e imprime
-            docContainer.innerHTML = originalDocHTML;
-            closeModal();
-            setTimeout(() => { window.print(); }, 50);
-            return;
-        }
+          tr.addEventListener('click', () => {
+            const nome = campos[0]; // "name"
+            const url = `https://cdn.jsdelivr.net/gh/${user}/${repo}/${nome}.md`;
 
-        // Partes Selecionadas: Monta um novo HTML contendo apenas os blocos cujos títulos foram marcados
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = originalDocHTML;
-        
-        // Mapeia todos os elementos filhos do container original
-        const allElements = Array.from(tempDiv.children);
-        const checkboxes = Array.from(document.querySelectorAll('.pdf-chk'));
-        
-        let newHTML = "";
-        let incluirBlocoAtual = false;
-        let ckeckboxIndex = 0;
+            fetch(url)
+              .then(res => res.text())
+              .then(md => {
+                conteudo.innerHTML = marked.parse(md);
+                conteudo.classList.add('carregado');
+              })
+              .catch(err => {
+                conteudo.textContent = 'Erro ao carregar o arquivo';
+                console.error(err);
+              });
+          });
 
-        allElements.forEach(el => {
-            // Se encontrar um novo cabeçalho, verifica no checkbox correspondente se deve ou não incluir
-            if (['H1', 'H2'].includes(el.tagName)) {
-                const chk = checkboxes.find(c => parseInt(c.dataset.index) === ckeckboxIndex);
-                incluirBlocoAtual = chk ? chk.checked : false;
-                ckeckboxIndex++;
-            }
-            
-            // Se o cabeçalho pai foi selecionado, acumula o elemento atual (seja o h1 ou o texto abaixo dele)
-            if (incluirBlocoAtual) {
-                newHTML += el.outerHTML;
-            }
+          tabelaBody.appendChild(tr);
         });
-
-        if(newHTML.trim() === "") {
-            alert("Por favor, selecione ao menos uma parte para gerar o PDF.");
-            return;
-        }
-
-        // Aplica o HTML filtrado, roda o print e imediatamente restaura o conteúdo original na tela
-        docContainer.innerHTML = newHTML;
-        closeModal();
-        
-        setTimeout(() => { 
-            window.print(); 
-            // Restaura o livro completo no site para o usuário continuar lendo normalmente
-            docContainer.innerHTML = originalDocHTML;
-        }, 100);
-    }
-
-    // 8. Carregar Bloco Isolado de Anúncios (ads.html)
-    async function loadAds() {
-        try {
-            const response = await fetch('ads.html');
-            if(!response.ok) return;
-            const htmlContent = await response.text();
-            
-            if(htmlContent.trim().length > 10) {
-                const adsContainer = document.getElementById('ads-container');
-                adsContainer.style.display = "block";
-                adsContainer.innerHTML = `
-                    <div style="font-size:11px; color:#888; margin-bottom:5px; text-transform:uppercase; letter-spacing:1px;">Anúncio Patrocinado</div>
-                    <div>${htmlContent}</div>
-                `;
-            }
-        } catch (e) {
-            console.log("ads.html não configurado ou inacessível.");
-        }
-    }
-</script>
+      })
+      .catch(err => {
+        sidebar.textContent = 'Erro ao carregar list.csv';
+        console.error(err);
+      });
+  </script>
 </body>
 </html>
